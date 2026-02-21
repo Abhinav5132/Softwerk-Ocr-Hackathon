@@ -3,6 +3,12 @@ use std::{ffi::OsString, fs, path::PathBuf};
 use pdfium_render::prelude::*;
 use anyhow::{Result, anyhow};
 fn main() -> Result<()> {
+    render_pdf_to_png()?;
+    Ok(())
+}
+
+
+pub fn render_pdf_to_png() -> Result<()> {
     let pdfium = Pdfium::new(
         Pdfium::bind_to_library(
             Pdfium::pdfium_platform_library_name_at_path(
@@ -36,7 +42,19 @@ fn main() -> Result<()> {
                 return Err(anyhow::Error::new(e));
             }
         };
-        // TODO clean converted before trying to convert
+        // TODO clean already converted before trying to convert
+
+        /*match extract_images_from_pdf(doc, filename) {
+            Ok(_) => {
+                continue;
+            }
+
+            Err(e) => {
+                dbg!(e);
+                continue;
+            }
+        }*/
+        
         match convert_to_png(doc, filename) {
             Ok(_) => {
                 continue;
@@ -47,12 +65,31 @@ fn main() -> Result<()> {
             }
         }
     }
-
     Ok(())
 }
 
+pub fn extract_images_from_pdf(doc: PdfDocument, filename: String) -> Result<()> {
+    let pages = doc.pages();
+    if pages.is_empty(){
+        return Ok(());
+    }
+
+    for (index, page) in pages.iter().enumerate(){
+        for (img_index, img) in page.objects().iter().enumerate(){
+            if let Some(image) = img.as_image_object(){
+                let bitmap = image.get_raw_bitmap()?;
+
+                let img_name = format!("data/converted/{filename}_page_{index}_{img_index}.png");
+                bitmap.as_image().save(&img_name)?;
+                dbg!(img_name);
+            }
+        }
+    }  
+    Ok(())  
+}
+
+
 pub fn convert_to_png(doc: PdfDocument, filename: String) -> anyhow::Result<()> {
-    
 
     let pages = doc.pages();
     if pages.is_empty() {
