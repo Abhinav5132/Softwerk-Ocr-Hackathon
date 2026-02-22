@@ -994,6 +994,7 @@ dependencies = [
  "anyhow",
  "image",
  "pdfium-render",
+ "rayon",
 ]
 
 [[package]]
