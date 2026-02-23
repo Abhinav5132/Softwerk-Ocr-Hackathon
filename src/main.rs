@@ -5,6 +5,8 @@ use std::time;
 
 use rayon::prelude::*;
 
+mod text_ocr_model;
+
 fn main() {
     let start_time = time::Instant::now();
     let dir = "./data/images";
