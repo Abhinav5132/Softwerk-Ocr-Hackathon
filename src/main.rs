@@ -6,7 +6,6 @@ use rayon::prelude::*;
 fn main() {
     let paths: Vec<_> = fs::read_dir("./data")
         .expect("failed to read data directory")
-        .into_iter()
         .map(|ent| ent.expect("failed to get path"))
         .filter(|ent| ent.file_type().expect("").is_file())
         .map(|ent| ent.path())
