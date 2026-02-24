@@ -2,12 +2,15 @@ use std::fs::{self, remove_dir_all, remove_file};
 use std::path::Path;
 use std::process::Command;
 use std::time;
-
+use std::io::Write;
 use rayon::prelude::*;
+use anyhow::Result;
+use candle_core::safetensors::*;
 
-mod text_ocr_model;
-
+mod configStructs;
+mod vision_encoder;
 fn main() {
+    /* 
     let start_time = time::Instant::now();
     let dir = "./data/images";
 
@@ -38,4 +41,24 @@ fn main() {
     });
     let elapsed = start_time.elapsed().as_secs();
     println!("{elapsed}");
+
+    */
+
+   let _ = print_safetensors();
+}
+
+
+pub fn print_safetensors() -> Result<()> {
+    let tensor1 = "models/models--lightonai--LightOnOCR-2-1B-bbox-soup/snapshots/dfdbd3e3627d80e28ddadece14098131aa485700/model.safetensors";
+    
+    let mut tensors = load(tensor1, &candle_core::Device::Cpu)?;
+
+
+    let mut out = std::fs::File::create("Keys.txt")?;
+    
+    for (name, tensor) in &tensors{
+        writeln!(out, "{}\t{:?}\t{:?}", name, tensor.shape(), tensor.dtype())?;
+    }
+
+    Ok(())
 }
