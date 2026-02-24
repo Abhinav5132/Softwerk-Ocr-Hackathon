@@ -9,6 +9,8 @@ use candle_core::safetensors::*;
 
 mod configStructs;
 mod vision_encoder;
+mod projector;
+mod language_models;
 fn main() {
     /* 
     let start_time = time::Instant::now();
