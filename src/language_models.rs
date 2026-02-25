@@ -3,6 +3,8 @@ use candle_nn::{Activation, Linear, VarBuilder, kv_cache::ConcatKvCache, linear_
 use candle_nn::{RmsNorm, rms_norm};
 use std::sync::Arc;
 
+use crate::configStructs::TextConfig;
+
 /*Copied from candle-transformers/src/models/util.rs */
 pub fn repeat_kv(xs: Tensor, n_rep: usize) -> Result<Tensor> {
     if n_rep == 1 {
@@ -14,44 +16,25 @@ pub fn repeat_kv(xs: Tensor, n_rep: usize) -> Result<Tensor> {
 }
 
 /*Adapted from candle-transformers/src/models/qwen3.rs */
-#[derive(Debug, Clone, PartialEq, serde::Deserialize)]
-pub struct Config {
-    pub vocab_size: usize,
-    pub hidden_size: usize,
-    pub intermediate_size: usize,
-    pub num_hidden_layers: usize,
-    pub num_attention_heads: usize,
-    pub head_dim: usize,
-    pub attention_bias: bool,
-    pub num_key_value_heads: usize,
-    pub max_position_embeddings: usize,
-    pub sliding_window: Option<usize>,
-    pub max_window_layers: usize,
-    pub tie_word_embeddings: bool,
-    pub rope_theta: f64,
-    pub rms_norm_eps: f64,
-    pub use_sliding_window: bool,
-    pub hidden_act: Activation,
-}
 
 #[derive(Debug, Clone)]
 pub(crate) struct Qwen3RotaryEmbedding {
-    sin: Tensor,
-    cos: Tensor,
+    pub sin: Tensor,
+    pub cos: Tensor,
 }
 
 impl Qwen3RotaryEmbedding {
-    pub(crate) fn new(dtype: DType, cfg: &Config, dev: &Device) -> Result<Self> {
+    pub(crate) fn new(dtype: DType, cfg: &TextConfig, dev: &Device) -> Result<Self> {
         let dim = cfg.head_dim;
         let max_seq_len = cfg.max_position_embeddings;
         let inv_freq: Vec<_> = (0..dim)
             .step_by(2)
-            .map(|i| 1f32 / cfg.rope_theta.powf(i as f64 / dim as f64) as f32)
+            .map(|i| 1 / cfg.rope_theta.pow((i / dim) as u32) as u32)
             .collect();
         let inv_freq_len = inv_freq.len();
         let inv_freq = Tensor::from_vec(inv_freq, (1, inv_freq_len), dev)?.to_dtype(DType::F32)?;
         let t = Tensor::arange(0u32, max_seq_len as u32, dev)?
-            .to_dtype(DType::F32)?
+            .to_dtype(DType::F32)? 
             .reshape((max_seq_len, 1))?;
         let freqs = t.matmul(&inv_freq)?;
         Ok(Self {
@@ -73,19 +56,19 @@ impl Qwen3RotaryEmbedding {
 
 #[derive(Debug, Clone)]
 pub(crate) struct Qwen3MLP {
-    gate_proj: Linear,
-    up_proj: Linear,
-    down_proj: Linear,
-    act_fn: Activation,
+    pub gate_proj: Linear,
+    pub up_proj: Linear,
+    pub down_proj: Linear,
+    pub act_fn: Activation,
 }
 
 impl Qwen3MLP {
-    pub(crate) fn new(cfg: &Config, vb: VarBuilder) -> Result<Self> {
+    pub(crate) fn new(cfg: &TextConfig, vb: VarBuilder) -> Result<Self> {
         Ok(Self {
             gate_proj: linear_no_bias(cfg.hidden_size, cfg.intermediate_size, vb.pp("gate_proj"))?,
             up_proj: linear_no_bias(cfg.hidden_size, cfg.intermediate_size, vb.pp("up_proj"))?,
             down_proj: linear_no_bias(cfg.intermediate_size, cfg.hidden_size, vb.pp("down_proj"))?,
-            act_fn: cfg.hidden_act,
+            act_fn: cfg.get_activation(),
         })
     }
 }
@@ -101,27 +84,27 @@ impl Module for Qwen3MLP {
 #[derive(Debug, Clone)]
 pub(crate) struct Qwen3Attention {
     // projections
-    q_proj: Linear,
-    k_proj: Linear,
-    v_proj: Linear,
-    o_proj: Linear,
+    pub q_proj: Linear,
+    pub k_proj: Linear,
+    pub v_proj: Linear,
+    pub o_proj: Linear,
     // norms
-    q_norm: RmsNorm,
-    k_norm: RmsNorm,
+    pub q_norm: RmsNorm,
+    pub k_norm: RmsNorm,
     // hyper params
-    num_heads: usize,
-    num_kv_heads: usize,
-    num_kv_groups: usize,
-    head_dim: usize,
-    hidden_size: usize,
+    pub num_heads: usize,
+    pub num_kv_heads: usize,
+    pub num_kv_groups: usize,
+    pub head_dim: usize,
+    pub hidden_size: usize,
     // utils
-    rotary_emb: Arc<Qwen3RotaryEmbedding>,
-    kv_cache: ConcatKvCache,
+    pub rotary_emb: Arc<Qwen3RotaryEmbedding>,
+    pub kv_cache: ConcatKvCache,
 }
 
 impl Qwen3Attention {
     pub(crate) fn new(
-        cfg: &Config,
+        cfg: &TextConfig,
         rotary_emb: Arc<Qwen3RotaryEmbedding>,
         vb: VarBuilder,
     ) -> Result<Self> {
@@ -250,14 +233,14 @@ impl Qwen3Attention {
 
 #[derive(Debug, Clone)]
 struct DecoderLayer {
-    self_attn: Qwen3Attention,
-    mlp: Qwen3MLP,
-    ln1: RmsNorm,
-    ln2: RmsNorm,
+    pub self_attn: Qwen3Attention,
+    pub mlp: Qwen3MLP,
+    pub ln1: RmsNorm,
+    pub ln2: RmsNorm,
 }
 
 impl DecoderLayer {
-    fn new(cfg: &Config, rotary: Arc<Qwen3RotaryEmbedding>, vb: VarBuilder) -> Result<Self> {
+    fn new(cfg: &TextConfig, rotary: Arc<Qwen3RotaryEmbedding>, vb: VarBuilder) -> Result<Self> {
         let self_attn = Qwen3Attention::new(cfg, rotary, vb.pp("self_attn"))?;
         let mlp = Qwen3MLP::new(cfg, vb.pp("mlp"))?;
         let ln1 = rms_norm(cfg.hidden_size, cfg.rms_norm_eps, vb.pp("input_layernorm"))?;
@@ -290,15 +273,15 @@ impl DecoderLayer {
 
 #[derive(Debug, Clone)]
 pub struct Model {
-    embed_tokens: candle_nn::Embedding,
-    layers: Vec<DecoderLayer>,
-    norm: RmsNorm,
-    device: Device,
-    dtype: DType,
+    pub embed_tokens: candle_nn::Embedding,
+    pub layers: Vec<DecoderLayer>,
+    pub norm: RmsNorm,
+    pub device: Device,
+    pub dtype: DType,
 }
 
 impl Model {
-    pub fn new(cfg: &Config, vb: VarBuilder) -> Result<Self> {
+    pub fn new(cfg: &TextConfig, vb: VarBuilder) -> Result<Self> {
         let embed_tokens =
             candle_nn::embedding(cfg.vocab_size, cfg.hidden_size, vb.pp("embed_tokens"))?;
         let rotary = Arc::new(Qwen3RotaryEmbedding::new(vb.dtype(), cfg, vb.device())?);
@@ -314,6 +297,20 @@ impl Model {
             device: vb.device().clone(),
             dtype: vb.dtype(),
         })
+    }
+
+    pub fn forward_embeds(&mut self, embeds: &Tensor, offset: usize) -> Result<Tensor> {
+        let (b, l, _) = embeds.dims3()?;
+        let causal = if l == 1 {
+            None
+        } else {
+            Some(self.causal_mask(b, l, offset, None)?)
+        };
+        let mut h = embeds.clone();
+        for layer in &mut self.layers {
+            h = layer.forward(&h, causal.as_ref(), offset)?;
+        }
+        self.norm.forward(&h)
     }
 
     fn clear_kv_cache(&mut self) {
@@ -368,12 +365,12 @@ impl Model {
 
 #[derive(Debug, Clone)]
 pub struct ModelForCausalLM {
-    base: Model,
-    lm_head: Linear,
+    pub base: Model,
+    pub lm_head: Linear,
 }
 
 impl ModelForCausalLM {
-    pub fn new(cfg: &Config, vb: VarBuilder) -> Result<Self> {
+    pub fn new(cfg: &TextConfig, vb: VarBuilder) -> Result<Self> {
         let base = Model::new(cfg, vb.clone())?;
         let lm_head = if cfg.tie_word_embeddings {
             Linear::new(base.embed_tokens.embeddings().clone(), None)
@@ -393,5 +390,13 @@ impl ModelForCausalLM {
 
     pub fn clear_kv_cache(&mut self) {
         self.base.clear_kv_cache();
+    }
+
+    pub fn forward_embeds(&mut self, embeds: &Tensor, offset: usize) -> Result<Tensor> {
+        let (_, l, _) = embeds.dims3()?;
+        self.base
+            .forward_embeds(embeds, offset)?
+            .narrow(1, l - 1, 1)? 
+            .apply(&self.lm_head)   
     }
 }

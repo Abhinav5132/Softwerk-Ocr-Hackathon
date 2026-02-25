@@ -1,7 +1,7 @@
 use candle_core::Tensor;
 use candle_nn::{Linear, Module, VarBuilder};
 use anyhow::Result;
-use crate::{configStructs::VisionConfig, vision_encoder::RmsNorm};
+use crate::{vision_encoder::RmsNorm};
 
 pub struct Projector{
     merging_layer: Linear,
