@@ -1,9 +1,10 @@
 use candle_core::{D, DType, Device, Shape, Tensor};
-use candle_nn::{Conv2d, Conv2dConfig, Linear, Module, VarBuilder, conv2d_no_bias};
+use candle_nn::{Conv2d, Conv2dConfig, Linear, Module, RmsNorm, VarBuilder, conv2d_no_bias, rms_norm};
 use anyhow::Result;
 
 use crate::configStructs::VisionConfig;
 
+/* 
 pub struct RmsNorm{
     weight: Tensor,
     eps: f64
@@ -23,11 +24,12 @@ impl RmsNorm{
         let t_norm = t.broadcast_div(&rms)?;
         
         // Reshape weight to have compatible shape for broadcasting
-        let weight = self.weight.reshape(vec![self.weight.dim(0)? as usize])?;
+        let weight = self.weight.reshape(vec![self.weight.dim(0)?])?;
         Ok(t_norm.broadcast_mul(&weight)?)
     }
 }
 
+*/
 pub struct visionRotaryEmbedding{
     rope_theta: u32,
     head_dim: u32
@@ -184,17 +186,17 @@ impl visionMlp {
 }
 
 pub struct visionLayer {
-    attention_norm: RmsNorm,
+    attention_norm: candle_nn::RmsNorm,
     attention: VisionAttention,
-    ffn_norm: RmsNorm,
+    ffn_norm: candle_nn::RmsNorm,
     mlp: visionMlp,
 }
 
 impl visionLayer {
     pub fn new(cfg: &VisionConfig, vb: VarBuilder) -> Result<Self> {
-        let attention_norm = RmsNorm::new(cfg.hidden_size as usize, 1e-5, vb.pp("attention_norm"))?;
+        let attention_norm = rms_norm(cfg.hidden_size as usize, 1e-5, vb.pp("attention_norm"))?;
         let attention = VisionAttention::new(cfg, vb.pp("attention"))?;
-        let ffn_norm = RmsNorm::new(cfg.hidden_size as usize, 1e-5, vb.pp("ffn_norm"))?;
+        let ffn_norm = rms_norm(cfg.hidden_size as usize, 1e-5, vb.pp("ffn_norm"))?;
         let mlp = visionMlp::new(cfg, vb.pp("feed_forward"))?;
 
         Ok(
@@ -238,7 +240,7 @@ impl visionEncoder {
             conv_config, 
             vb.pp("patch_conv"),)?;
 
-        let ln_pre = RmsNorm::new(cfg.hidden_size as usize, 1e-5, vb.pp("ln_pre"))?;
+        let ln_pre = rms_norm(cfg.hidden_size as usize, 1e-5, vb.pp("ln_pre"))?;
 
         let transformer_vb = vb.pp("transformer").pp("layers");
 

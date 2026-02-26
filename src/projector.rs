@@ -1,7 +1,6 @@
 use candle_core::Tensor;
-use candle_nn::{Linear, Module, VarBuilder};
+use candle_nn::{Linear, Module, RmsNorm, VarBuilder, rms_norm};
 use anyhow::Result;
-use crate::{vision_encoder::RmsNorm};
 
 pub struct Projector{
     merging_layer: Linear,
@@ -18,7 +17,7 @@ impl Projector {
             vb.pp("patch_merger").pp("merging_layer")
         )?;
 
-        let norm = RmsNorm::new(hidden_size, 1e-5, vb.pp("norm"))?;
+        let norm = rms_norm(hidden_size, 1e-5, vb.pp("norm"))?;
         let linear_1 = candle_nn::linear_no_bias(
             hidden_size, 
             hidden_size, 
@@ -34,19 +33,18 @@ impl Projector {
         Ok(Self { merging_layer, norm, linear_1, linear_2 })
     }
 
+    
     /* pw and ph must both be even. Since the patch_size is 14 we must preprocess images to multiples of 28*/
     pub fn forward(&self, x: &Tensor, ph: usize, pw: usize) -> Result<Tensor> {
 
         let hidden = x.dim(1)?;
+        let x = self.norm.forward(x)?;
+
         let x = x.reshape((ph, pw, hidden))?;
-
-        let x = x.reshape((ph / 2, 2, pw / 2, 2, hidden))?;
-
-        let x = x.permute((0, 2, 1, 3, 4))?;
-        let x = x.reshape((ph / 2 * pw / 2, hidden * 4))?;
+        let x = x.permute((2, 0 ,1))?.unsqueeze(0)?;
+        let x = x.reshape((1, hidden, ph/2, 2, pw/2, 2))?.permute((0,2,4,1,3,5))?
+        .reshape((ph/2*pw/2, hidden*4))?;
         let x = self.merging_layer.forward(&x)?;
-
-        let x = self.norm.forward(&x)?;
         let x = self.linear_1.forward(&x)?;
         let x = x.gelu()?;
         let x = self.linear_2.forward(&x)?;
