@@ -36,8 +36,8 @@ impl Projector {
     
     /* pw and ph must both be even. Since the patch_size is 14 we must preprocess images to multiples of 28*/
     pub fn forward(&self, x: &Tensor, ph: usize, pw: usize) -> Result<Tensor> {
-
-        let hidden = x.dim(1)?;
+        println!("projector input shape: {:?}", x.shape());
+        let hidden = x.dim(candle_core::D::Minus1)?;
         let x = self.norm.forward(x)?;
 
         let x = x.reshape((ph, pw, hidden))?;

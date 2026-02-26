@@ -15,7 +15,6 @@ use crate::preprocess::preprocess;
 
 mod model;
 mod configStructs;
-mod vision_encoder;
 mod projector;
 mod language_models;
 mod preprocess;

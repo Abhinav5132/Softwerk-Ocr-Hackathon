@@ -1,11 +1,13 @@
 use candle_core::{IndexOp, Tensor};
 use candle_nn::{Module, VarBuilder};
 
-use crate::{configStructs::ModelConfig, language_models::{ModelForCausalLM}, projector::Projector, vision_encoder::visionEncoder};
+use crate::{configStructs::ModelConfig, language_models::{ModelForCausalLM}, projector::Projector};
 use anyhow::Result;
+use candle_transformers::models::pixtral::vision_model::{self, Config, Model};
 
 pub struct LightOnOCR{
-    pub vision_encoder: visionEncoder,
+    pub vision_encoder: Model,
+    pub vision_config: Config,
     pub projector: Projector,
     pub language_model: ModelForCausalLM,
     pub image_token_id: u32,
@@ -15,10 +17,19 @@ impl LightOnOCR {
     pub fn new(cfg: &ModelConfig, vb: VarBuilder) -> Result<Self> {
         let model_vb = vb.pp("model");
 
-        let vision_encoder = visionEncoder::new(
-            &cfg.vision_config, 
-            model_vb.pp("vision_encoder")
-        )?;
+        let vision_cfg = Config {
+           hidden_size: cfg.vision_config.hidden_size as usize,
+            num_hidden_layers: cfg.vision_config.num_hidden_layers as usize,
+            num_attention_heads: cfg.vision_config.num_attention_heads as usize,
+            intermediate_size: cfg.vision_config.intermediate_size as usize,
+            head_dim: Some(cfg.vision_config.head_dim as usize),
+            patch_size: cfg.vision_config.patch_size as usize,
+            rope_theta: cfg.vision_config.rope_theta as f64,
+            hidden_act: candle_nn::Activation::Silu,
+            image_size: cfg.vision_config.image_size as usize,
+            num_channels: cfg.vision_config.num_channels as usize };
+
+        let vision_encoder = vision_model::Model::new(&vision_cfg, model_vb.pp("vision_encoder"))?;
 
         let projector = Projector::new(
             (cfg.vision_config.hidden_size) as usize, 
@@ -30,34 +41,24 @@ impl LightOnOCR {
             model_vb.pp("language_model")
         )?;
 
-        Ok(Self { vision_encoder, projector, language_model, image_token_id: cfg.image_token_id })
+        Ok(Self { vision_encoder, vision_config: vision_cfg, projector, language_model, image_token_id: cfg.image_token_id })
     }
 
     pub fn forward(&mut self, input_ids: &Tensor, pixel_values:&Tensor, offset: usize) -> Result<Tensor> {
+        let image_features = self.vision_encoder.forward(pixel_values)?
+        .squeeze(0)?;
         let (_, _, h, w) = pixel_values.dims4()?;
         println!("pixel_values shape: {:?}, dtype: {:?}", pixel_values.shape(), pixel_values.dtype());
         
-        // Check if image has non-zero values
-        let sum_val = pixel_values.sum_all()?.to_dtype(candle_core::DType::F32)?.to_scalar::<f32>()?;
-        println!("pixel_values sum: {}", sum_val);
-        
-        let ph = h / self.vision_encoder.patch_size;
-        let pw = w / self.vision_encoder.patch_size;
+        let ph = h / self.vision_config.patch_size;
+        let pw = w / self.vision_config.patch_size;
         println!("model.rs computed: ph={} pw={}", ph, pw);
+
         let mut embeds = self.language_model.base.embed_tokens.forward(input_ids)?;
-
-        let image_features = self.vision_encoder.forward(pixel_values)?;
-        println!("image_features shape: {:?}, dtype: {:?}", image_features.shape(), image_features.dtype());
-
         let image_embeds = self.projector.forward(&image_features, ph, pw)?;
         println!("image_embeds after projector shape: {:?}, dtype: {:?}", image_embeds.shape(), image_embeds.dtype());
         
         let image_embeds = image_embeds.to_dtype(embeds.dtype())?;
-
-        println!("embeds dtype: {:?}", embeds.dtype());
-        println!("image_embeds dtype: {:?}", image_embeds.dtype());
-        println!("embeds shape: {:?}", embeds.shape());
-        println!("image_embeds shape: {:?}", image_embeds.shape());
         
         embeds = self.splice_image_embeddings(input_ids, &embeds, &image_embeds)?;
 

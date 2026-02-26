@@ -27,20 +27,20 @@ impl Qwen3RotaryEmbedding {
     pub(crate) fn new(dtype: DType, cfg: &TextConfig, dev: &Device) -> Result<Self> {
         let dim = cfg.head_dim;
         let max_seq_len = cfg.max_position_embeddings;
-        let inv_freq: Vec<_> = (0..dim)
+        let inv_freq: Vec<f32> = (0..dim)
             .step_by(2)
-            .map(|i| 1 / cfg.rope_theta.pow((i / dim) as u32) as u32)
+            .map(|i| 1.0f32 / (cfg.rope_theta as f32).powf(i as f32 / dim as f32))
             .collect();
         let inv_freq_len = inv_freq.len();
-        let inv_freq = Tensor::from_vec(inv_freq, (1, inv_freq_len), dev)?.to_dtype(DType::F32)?;
+        let inv_freq = Tensor::from_vec(inv_freq, (1, inv_freq_len), dev)?;
         let t = Tensor::arange(0u32, max_seq_len as u32, dev)?
-            .to_dtype(DType::F32)? 
+            .to_dtype(DType::F32)?
             .reshape((max_seq_len, 1))?;
         let freqs = t.matmul(&inv_freq)?;
         Ok(Self {
             sin: freqs.sin()?.to_dtype(dtype)?,
             cos: freqs.cos()?.to_dtype(dtype)?,
-        })
+})
     }
 
     /// Apply RoPE (q, k shape: B x H x L x D)
