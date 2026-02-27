@@ -3,7 +3,7 @@ use candle_nn::{Activation, Linear, VarBuilder, kv_cache::ConcatKvCache, linear_
 use candle_nn::{RmsNorm, rms_norm};
 use std::sync::Arc;
 
-use crate::configStructs::TextConfig;
+use crate::config_structs::TextConfig;
 
 /*Copied from candle-transformers/src/models/util.rs */
 pub fn repeat_kv(xs: Tensor, n_rep: usize) -> Result<Tensor> {
@@ -232,7 +232,7 @@ impl Qwen3Attention {
 }
 
 #[derive(Debug, Clone)]
-struct DecoderLayer {
+pub struct DecoderLayer {
     pub self_attn: Qwen3Attention,
     pub mlp: Qwen3MLP,
     pub ln1: RmsNorm,

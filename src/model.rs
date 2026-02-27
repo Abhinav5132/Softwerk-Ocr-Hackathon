@@ -1,7 +1,7 @@
 use candle_core::{IndexOp, Tensor};
 use candle_nn::{Module, VarBuilder};
 
-use crate::{configStructs::ModelConfig, language_models::{ModelForCausalLM}, projector::Projector};
+use crate::{config_structs::ModelConfig, language_models::{ModelForCausalLM}, projector::Projector};
 use anyhow::Result;
 use candle_transformers::models::pixtral::vision_model::{self, Config, Model};
 
@@ -10,7 +10,7 @@ pub struct LightOnOCR{
     pub vision_config: Config,
     pub projector: Projector,
     pub language_model: ModelForCausalLM,
-    pub image_token_id: u32,
+    pub image_token_id: usize,
 }
 
 impl LightOnOCR {
@@ -18,21 +18,21 @@ impl LightOnOCR {
         let model_vb = vb.pp("model");
 
         let vision_cfg = Config {
-           hidden_size: cfg.vision_config.hidden_size as usize,
-            num_hidden_layers: cfg.vision_config.num_hidden_layers as usize,
-            num_attention_heads: cfg.vision_config.num_attention_heads as usize,
-            intermediate_size: cfg.vision_config.intermediate_size as usize,
-            head_dim: Some(cfg.vision_config.head_dim as usize),
-            patch_size: cfg.vision_config.patch_size as usize,
+           hidden_size: cfg.vision_config.hidden_size,
+            num_hidden_layers: cfg.vision_config.num_hidden_layers ,
+            num_attention_heads: cfg.vision_config.num_attention_heads ,
+            intermediate_size: cfg.vision_config.intermediate_size,
+            head_dim: Some(cfg.vision_config.head_dim ),
+            patch_size: cfg.vision_config.patch_size,
             rope_theta: cfg.vision_config.rope_theta as f64,
             hidden_act: candle_nn::Activation::Silu,
-            image_size: cfg.vision_config.image_size as usize,
-            num_channels: cfg.vision_config.num_channels as usize };
+            image_size: cfg.vision_config.image_size,
+            num_channels: cfg.vision_config.num_channels};
 
         let vision_encoder = vision_model::Model::new(&vision_cfg, model_vb.pp("vision_encoder"))?;
 
         let projector = Projector::new(
-            (cfg.vision_config.hidden_size) as usize, 
+            cfg.vision_config.hidden_size , 
             model_vb.pp("vision_projection")
         )?;
 
@@ -77,7 +77,7 @@ impl LightOnOCR {
         let image_positions: Vec<usize> = ids
             .iter()
             .enumerate()
-            .filter(|(_, id)| **id == self.image_token_id)
+            .filter(|(_, id)| **id == self.image_token_id as u32)
             .map(|(i, _)| i)
             .collect();
 
@@ -93,12 +93,11 @@ impl LightOnOCR {
             );
         }
 
-        let hidden = embeds.dim(2)?;
         let mut rows: Vec<Tensor> = Vec::with_capacity(seq_len);
         let mut img_idx = 0usize;
 
         for i in 0..seq_len {
-            if ids[i] == self.image_token_id {
+            if ids[i] == self.image_token_id as u32 {
                 let row = image_embeds.i(img_idx)?.unsqueeze(0)?;
                 rows.push(row);
                 img_idx += 1;
@@ -109,10 +108,6 @@ impl LightOnOCR {
         }
         Ok(Tensor::cat(&rows, 0)?
             .unsqueeze(0)?)  
-    }
-
-    pub fn clear_kv_cache(&mut self) {
-        self.language_model.clear_kv_cache();
     }
 
     pub fn decode_step(&mut self, input_ids: &Tensor, offset: usize) -> Result<Tensor> {

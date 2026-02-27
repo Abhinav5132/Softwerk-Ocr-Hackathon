@@ -1,6 +1,3 @@
-use std::str::FromStr;
-
-use candle_core::DType;
 use candle_nn::Activation;
 use serde::Deserialize;
 
@@ -8,13 +5,13 @@ use serde::Deserialize;
 pub struct ModelConfig {
     pub architectures: Vec<String>,
     pub dtype: String,
-    pub eos_token_id: u32,
-    pub image_token_id: u32,
+    pub eos_token_id: usize,
+    pub image_token_id: usize,
     pub model_type: String,
     pub multimodal_projector_bias: bool,
-    pub pad_token_id: u32,
+    pub pad_token_id: usize,
     pub projector_hidden_act: String,
-    pub spatial_merge_size: u32,
+    pub spatial_merge_size: usize,
     pub text_config: TextConfig,
     pub transformers_version: String,
     pub use_cache: bool,
@@ -54,43 +51,31 @@ pub struct TextConfig{
 
 impl TextConfig {
     pub fn get_activation(&self) -> Activation {
-        return Activation::Silu
+        Activation::Silu 
     }
 }
 
 #[derive(Deserialize)]
 pub struct RopeParameters {
-    rope_theta: u32,
+    rope_theta: usize,
     rope_type: String,
 }
 
 #[derive(Deserialize)]
 pub struct VisionConfig{
-    pub attention_dropout: u32,
+    pub attention_dropout: usize,
     pub dtype: String,
-    pub head_dim: u32,
+    pub head_dim: usize,
     pub hidden_act: String,
-    pub hidden_size: u32,
-    pub image_size: u32,
+    pub hidden_size: usize,
+    pub image_size: usize,
     pub initializer_range: f32,
-    pub intermediate_size: u32,
+    pub intermediate_size: usize,
     pub model_type: String,
-    pub num_attention_heads: u32,
-    pub num_channels: u32,
-    pub num_hidden_layers: u32,
-    pub patch_size: u32,
+    pub num_attention_heads: usize,
+    pub num_channels: usize,
+    pub num_hidden_layers: usize,
+    pub patch_size: usize,
     pub rope_parameters: RopeParameters,
-    pub rope_theta: u32
-}
-
-impl VisionConfig {
-    /*Image gets cut into a grid of smaller Patches. This returns the number of patches */
-    pub fn num_patches(&self) -> u32 {
-        (self.image_size / self.patch_size).pow(2) 
-    }
-
-    /*Size of each attention head */
-    pub fn head_dim(&self) -> u32 {
-        self.hidden_size / self.num_attention_heads
-    }
+    pub rope_theta: usize
 }
