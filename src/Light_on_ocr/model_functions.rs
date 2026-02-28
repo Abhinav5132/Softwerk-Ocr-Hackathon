@@ -9,39 +9,7 @@ const IMAGE_PAD:  u32 = 151655; // <|image_pad|> — one image patch token
 
 
 /*Selects the device to you, falls back to cpu if no CUDA or METAL devices found */
-pub fn select_device() -> Device {
-    if candle_core::utils::cuda_is_available() {
-        let cuda = match Device::new_cuda(0) {
-            Ok(c) => c,
-            Err(e) => {
-                dbg!(e);
-                Device::Cpu
-            }
-        };
-        return cuda
-    }
-    else if candle_core::utils::metal_is_available() {
-        let metal = match Device::new_metal(0) {
-            Ok(m) => m,
-            Err(e) => {
-                dbg!(e);
-                Device::Cpu
-            }
-        };
-        return metal
-    } else {
-        Device::Cpu
-    }
 
-}
-
-pub fn get_dtype(device: &Device) -> DType{
-    let dtype = match device {
-        Device::Cpu => DType::F32,
-        _ => DType::BF16,
-    };
-    dtype
-}
 
 pub fn build_model(device: &Device) -> Result<(LightOnOCR, Tokenizer)> {
     
@@ -71,7 +39,7 @@ pub fn build_model(device: &Device) -> Result<(LightOnOCR, Tokenizer)> {
 /*image path is hardcoded for now should later use the pages vector. */
 pub fn run_model(mut model: LightOnOCR, tokenizer: Tokenizer, device: Device, pages: Vec<Page>) -> Result<()> {
     
-    let image_path = "data/test/test_files/pol-1994-03-24-SÄPO-PM-Swedenborgskyrkan-HE-15241-02.pdf_page_3.png";
+    let image_path = "data/images/pol-1986-03-04-L854-Anja-Landgree-Inga-Ålenius.pdf-23.png";
     let img = image::open(image_path)?;
     let preprocessed = preprocess(&img, &device)?;
 

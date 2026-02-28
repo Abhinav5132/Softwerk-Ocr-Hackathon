@@ -6,12 +6,12 @@ use std::io::Write;
 use candle_nn::VarBuilder;
 use rayon::prelude::*;
 use anyhow::Result;
-use candle_core::{DType, safetensors::*};
+use candle_core::{DType, Device, safetensors::*};
 use tokenizers::Tokenizer;
 
 pub mod Light_on_ocr;
 pub mod trocr;
-use crate::Light_on_ocr::model_functions::{build_model, run_model, select_device};
+use crate::Light_on_ocr::model_functions::{build_model, run_model};
 
 mod page_struct;
 use crate::page_struct::Page;
@@ -70,5 +70,36 @@ fn main() {
 
 }
 
+pub fn select_device() -> Device {
+    if candle_core::utils::cuda_is_available() {
+        let cuda = match Device::new_cuda(0) {
+            Ok(c) => c,
+            Err(e) => {
+                dbg!(e);
+                Device::Cpu
+            }
+        };
+        return cuda
+    }
+    else if candle_core::utils::metal_is_available() {
+        let metal = match Device::new_metal(0) {
+            Ok(m) => m,
+            Err(e) => {
+                dbg!(e);
+                Device::Cpu
+            }
+        };
+        return metal
+    } else {
+        Device::Cpu
+    }
 
+}
 
+pub fn get_dtype(device: &Device) -> DType{
+    let dtype = match device {
+        Device::Cpu => DType::F32,
+        _ => DType::BF16,
+    };
+    dtype
+}
