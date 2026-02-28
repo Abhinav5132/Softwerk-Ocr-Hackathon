@@ -1,5 +1,12 @@
 use candle_core::Device;
-use crate::*;
+use crate::{Light_on_ocr::{config_structs::ModelConfig, model::LightOnOCR}, *};
+
+const IM_START:   u32 = 151644; // <|im_start|>
+const IM_END:     u32 = 151645; // <|im_end|> — EOS token
+const VISION_END: u32 = 151653; // <|vision_end|> — terminates image sequence
+const VISION_PAD: u32 = 151654; // <|vision_pad|> — row break between patch rows
+const IMAGE_PAD:  u32 = 151655; // <|image_pad|> — one image patch token
+
 
 /*Selects the device to you, falls back to cpu if no CUDA or METAL devices found */
 pub fn select_device() -> Device {

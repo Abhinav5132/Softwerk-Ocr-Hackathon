@@ -6,28 +6,16 @@ use std::io::Write;
 use candle_nn::VarBuilder;
 use rayon::prelude::*;
 use anyhow::Result;
-use candle_core::{DType, Device, IndexOp, safetensors::*};
+use candle_core::{DType, safetensors::*};
 use tokenizers::Tokenizer;
 
-use crate::config_structs::ModelConfig;
-use crate::model::LightOnOCR;
-use crate::page_struct::Page;
-use crate::preprocess::preprocess;
+pub mod Light_on_ocr;
+pub mod trocr;
+use crate::Light_on_ocr::model_functions::{build_model, run_model, select_device};
 
-mod model;
-mod config_structs;
-mod projector;
-mod language_models;
-mod preprocess;
-mod model_functions;
 mod page_struct;
-use model_functions::*;
-
-const IM_START:   u32 = 151644; // <|im_start|>
-const IM_END:     u32 = 151645; // <|im_end|> — EOS token
-const VISION_END: u32 = 151653; // <|vision_end|> — terminates image sequence
-const VISION_PAD: u32 = 151654; // <|vision_pad|> — row break between patch rows
-const IMAGE_PAD:  u32 = 151655; // <|image_pad|> — one image patch token
+use crate::page_struct::Page;
+use crate::Light_on_ocr::preprocess::preprocess;
 
 fn main() {
     

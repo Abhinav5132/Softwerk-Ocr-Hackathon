@@ -1,7 +1,7 @@
 use candle_core::{IndexOp, Tensor};
 use candle_nn::{Module, VarBuilder};
 
-use crate::{config_structs::ModelConfig, language_models::{ModelForCausalLM}, projector::Projector};
+use crate::{Light_on_ocr::config_structs::ModelConfig, Light_on_ocr::language_models::{ModelForCausalLM}, Light_on_ocr::projector::Projector};
 use anyhow::Result;
 use candle_transformers::models::pixtral::vision_model::{self, Config, Model};
 

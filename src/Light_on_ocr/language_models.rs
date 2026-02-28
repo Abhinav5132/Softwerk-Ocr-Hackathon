@@ -3,7 +3,8 @@ use candle_nn::{Activation, Linear, VarBuilder, kv_cache::ConcatKvCache, linear_
 use candle_nn::{RmsNorm, rms_norm};
 use std::sync::Arc;
 
-use crate::config_structs::TextConfig;
+use crate::Light_on_ocr::config_structs::TextConfig;
+
 
 /*Copied from candle-transformers/src/models/util.rs */
 pub fn repeat_kv(xs: Tensor, n_rep: usize) -> Result<Tensor> {
