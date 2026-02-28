@@ -4,4 +4,13 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+anyhow = "1.0.102"
+candle-core = {version = "0.9.2", features = ["cuda"]}
+candle-examples = "0.9.2"
+candle-nn = {version = "0.9.2", features = ["cuda"]}
+candle-transformers = "0.9.2"
+image = "0.25.9"
 rayon = "1.11.0"
+serde = "1.0.228"
+serde_json = "1.0.149"
+tokenizers = "0.22.2"

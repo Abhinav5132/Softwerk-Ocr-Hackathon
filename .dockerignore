@@ -1,1 +1,4 @@
 target/
+models/
+data/images
+data/test
